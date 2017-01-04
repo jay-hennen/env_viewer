@@ -61,7 +61,7 @@ class EnvViewer(QtWidgets.QMainWindow, env_viewer.Ui_MainWindow):
                         pts = np.column_stack((lon.reshape(-1), lat.reshape(-1), np.zeros_like(lat.reshape(-1))))
                         lon = lon - 360
                         t = e.time.min_time
-                        vels = e.at(pts, t)
+                        vels = e.at(pts, t, interpolation='nearest')
                         u = vels[:, 0]
                         v = vels[:, 1]
                         u, v = self.convert_uv_to_delta(lat.reshape(-1), (u, v))

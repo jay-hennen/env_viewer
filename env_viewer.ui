@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>800</width>
-    <height>768</height>
+    <width>742</width>
+    <height>727</height>
    </rect>
   </property>
   <property name="baseSize">
@@ -55,54 +55,120 @@
           </widget>
          </item>
          <item>
-          <widget class="QGroupBox" name="groupBox">
-           <property name="enabled">
-            <bool>true</bool>
-           </property>
-           <property name="sizePolicy">
-            <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-             <horstretch>0</horstretch>
-             <verstretch>0</verstretch>
-            </sizepolicy>
-           </property>
-           <property name="minimumSize">
-            <size>
-             <width>0</width>
-             <height>100</height>
-            </size>
-           </property>
-           <property name="title">
-            <string>Projections</string>
-           </property>
-           <layout class="QVBoxLayout" name="verticalLayout_4">
-            <item>
-             <widget class="QRadioButton" name="merc_proj_btn">
-              <property name="text">
-               <string>Mercator (-60 -&gt; 60)</string>
-              </property>
-              <property name="checked">
+          <widget class="QWidget" name="widget_2" native="true">
+           <layout class="QGridLayout" name="gridLayout_2">
+            <item row="1" column="0">
+             <widget class="QGroupBox" name="groupBox">
+              <property name="enabled">
                <bool>true</bool>
               </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QRadioButton" name="north_proj_btn">
-              <property name="text">
-               <string>North Polar</string>
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>100</height>
+               </size>
+              </property>
+              <property name="title">
+               <string>Projections</string>
               </property>
               <property name="checkable">
-               <bool>true</bool>
-              </property>
-              <property name="checked">
                <bool>false</bool>
               </property>
+              <layout class="QVBoxLayout" name="verticalLayout_4">
+               <item>
+                <widget class="QRadioButton" name="merc_proj_btn">
+                 <property name="text">
+                  <string>Mercator</string>
+                 </property>
+                 <property name="checked">
+                  <bool>true</bool>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QRadioButton" name="north_proj_btn">
+                 <property name="text">
+                  <string>North Polar</string>
+                 </property>
+                 <property name="checkable">
+                  <bool>true</bool>
+                 </property>
+                 <property name="checked">
+                  <bool>false</bool>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QRadioButton" name="south_proj_btn">
+                 <property name="text">
+                  <string>South Polar</string>
+                 </property>
+                </widget>
+               </item>
+              </layout>
              </widget>
             </item>
-            <item>
-             <widget class="QRadioButton" name="south_proj_btn">
-              <property name="text">
-               <string>South Polar</string>
+            <item row="1" column="1">
+             <widget class="QGroupBox" name="groupBox_3">
+              <property name="enabled">
+               <bool>true</bool>
               </property>
+              <property name="title">
+               <string>Depth</string>
+              </property>
+              <layout class="QGridLayout" name="gridLayout_3">
+               <item row="1" column="0">
+                <widget class="QSlider" name="depth_slider">
+                 <property name="sizePolicy">
+                  <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+                   <horstretch>0</horstretch>
+                   <verstretch>0</verstretch>
+                  </sizepolicy>
+                 </property>
+                 <property name="sliderPosition">
+                  <number>0</number>
+                 </property>
+                 <property name="orientation">
+                  <enum>Qt::Vertical</enum>
+                 </property>
+                 <property name="invertedAppearance">
+                  <bool>true</bool>
+                 </property>
+                </widget>
+               </item>
+               <item row="0" column="0">
+                <widget class="QLabel" name="depth_val_txt">
+                 <property name="text">
+                  <string>0</string>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item row="0" column="0" colspan="2">
+             <widget class="QGroupBox" name="groupBox_2">
+              <property name="title">
+               <string>Time</string>
+              </property>
+              <layout class="QVBoxLayout" name="verticalLayout_2">
+               <item>
+                <widget class="QDateTimeEdit" name="date_time_box"/>
+               </item>
+               <item>
+                <widget class="QSlider" name="time_step_slider">
+                 <property name="orientation">
+                  <enum>Qt::Horizontal</enum>
+                 </property>
+                </widget>
+               </item>
+              </layout>
              </widget>
             </item>
            </layout>
@@ -117,5 +183,22 @@
   </widget>
  </widget>
  <resources/>
- <connections/>
+ <connections>
+  <connection>
+   <sender>depth_slider</sender>
+   <signal>sliderMoved(int)</signal>
+   <receiver>depth_val_txt</receiver>
+   <slot>setNum(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>167</x>
+     <y>1130</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>167</x>
+     <y>1054</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
 </ui>
