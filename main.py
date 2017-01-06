@@ -5,7 +5,7 @@ import copy
 import env_viewer  # This file holds our MainWindow and all design related things
               # it also keeps events etc that we defined in Qt Designer
 
-from gnome.environment.grid_property import GridVectorProp
+from gnome.environment.grid_property import GridVectorProp, GriddedProp
 
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt5agg import (
@@ -13,6 +13,7 @@ from matplotlib.backends.backend_qt5agg import (
     NavigationToolbar2QT as NavigationToolbar)
 from gnome.environment.grid_property import GridVectorProp
 
+import cartopy
 import cartopy.crs as ccrs
 
 
@@ -50,30 +51,41 @@ class EnvViewer(QtWidgets.QMainWindow, env_viewer.Ui_MainWindow):
                 self.names_view_data = {}
                 for e in env:
                     self.names_view.addItem(e.name)
+                    f = Figure()
+                    plate = ccrs.PlateCarree()
+                    pole = projection = ccrs.NorthPolarStereo()
+                    self.names_view_data[e.name] = e
+                    lon = e.grid.node_lon
+                    lat = e.grid.node_lat
+                    scl = (lon.shape[0] / 100 + 1, lon.shape[1] / 100 + 1)
+                    print scl
+                    lon = lon[::scl[0], ::scl[1]]
+                    lat = lat[::scl[0], ::scl[1]]
+                    pts = np.column_stack((lon.reshape(-1), lat.reshape(-1), np.zeros_like(lat.reshape(-1))))
+                    lon = lon - 360
+                    t = e.time.min_time
+                    p = f.add_subplot(111, projection=pole)
+                    p.coastlines('50m')
+                    p.set_extent([-180, 180, lat.min(), 90], ccrs.PlateCarree())
+                    p.add_feature(cartopy.feature.OCEAN, zorder=0)
+                    p.add_feature(cartopy.feature.LAND, zorder=0, edgecolor='black')
+                    p.gridlines()
+#                         r = p.quiver(lon, lat, u, v, scale=None, units='xy', scale_units='xy', width=0.030)
                     if isinstance(e, (GridVectorProp,)):
-                        self.names_view_data[e.name] = e
-                        lon = e.grid.node_lon
-                        lat = e.grid.node_lat
-                        scl = (lon.shape[0] / 100 + 1, lon.shape[1] / 100 + 1)
-                        print scl
-                        lon = lon[::scl[0], ::scl[1]]
-                        lat = lat[::scl[0], ::scl[1]]
-                        pts = np.column_stack((lon.reshape(-1), lat.reshape(-1), np.zeros_like(lat.reshape(-1))))
-                        lon = lon - 360
-                        t = e.time.min_time
-                        vels = e.at(pts, t, interpolation='nearest')
+                        vels = e.at(pts, t, interpolation='linear')
                         u = vels[:, 0]
                         v = vels[:, 1]
+                        u = np.ma.masked_equal(u, 0.0)
+                        v = np.ma.masked_equal(v, 0.0)
                         u, v = self.convert_uv_to_delta(lat.reshape(-1), (u, v))
-                        f = Figure()
-                        plate = ccrs.PlateCarree()
-                        pole = projection = ccrs.NorthPolarStereo()
-                        p = f.add_subplot(111, projection=pole)
-                        p.coastlines('50m')
-                        p.set_extent([-180, 180, lat.min(), 90], ccrs.PlateCarree())
-#                         r = p.quiver(lon, lat, u, v, scale=None, units='xy', scale_units='xy', width=0.030)
-                        r = p.quiver(lon.reshape(-1), lat.reshape(-1), u, v, transform=ccrs.PlateCarree())
-                        self.fig_dict[e.name] = f
+                        u = u.reshape(lon.shape)
+                        v = v.reshape(lat.shape)
+                        r = p.quiver(lon, lat, u, v, transform=ccrs.PlateCarree())
+                    if isinstance(e, GriddedProp):
+                        vals = e.at(pts, t, interpolation='linear')
+                        c = p.contourf(lon, lat, vals.reshape(lon.shape), transform=plate)
+                        f.colorbar(c)
+                    self.fig_dict[e.name] = f
             except Exception:
                 raise
 
