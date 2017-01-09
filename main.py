@@ -15,6 +15,7 @@ from gnome.environment.grid_property import GridVectorProp
 
 import cartopy
 import cartopy.crs as ccrs
+import matplotlib
 
 
 class EnvViewer(QtWidgets.QMainWindow, env_viewer.Ui_MainWindow):
@@ -28,90 +29,146 @@ class EnvViewer(QtWidgets.QMainWindow, env_viewer.Ui_MainWindow):
         self.button_open_folder.clicked.connect(self.open_netCDF)
                             # It sets up layout and widgets that are defined
         self.fig_dict = {}
-        self.names_view_data = {}
         
         self.names_view.itemClicked.connect(self.changefig)
-        
-        fig = Figure()
-        self.addmpl(fig)
-        
-    def open_netCDF(self):
-        self.names_view.clear()
-        self.names_view_data.clear()
-        self.fig_dict.clear()
-        self.env_objs = None
-        filename = QtWidgets.QFileDialog.getOpenFileName(self, "Pick a .nc")[0]
- 
-        if filename is not None:
-            from gnome.environment import env_from_netCDF
-            try:
-                env = env_from_netCDF(filename)
-                self.env_objs = env
-             
-                self.names_view_data = {}
-                for e in env:
-                    self.names_view.addItem(e.name)
-                    f = Figure()
-                    plate = ccrs.PlateCarree()
-                    pole = projection = ccrs.NorthPolarStereo()
-                    self.names_view_data[e.name] = e
-                    lon = e.grid.node_lon
-                    lat = e.grid.node_lat
-                    scl = (lon.shape[0] / 100 + 1, lon.shape[1] / 100 + 1)
-                    print scl
-                    lon = lon[::scl[0], ::scl[1]]
-                    lat = lat[::scl[0], ::scl[1]]
-                    pts = np.column_stack((lon.reshape(-1), lat.reshape(-1), np.zeros_like(lat.reshape(-1))))
-                    lon = lon - 360
-                    t = e.time.min_time
-                    p = f.add_subplot(111, projection=pole)
-                    p.coastlines('50m')
-                    p.set_extent([-180, 180, lat.min(), 90], ccrs.PlateCarree())
-                    p.add_feature(cartopy.feature.OCEAN, zorder=0)
-                    p.add_feature(cartopy.feature.LAND, zorder=0, edgecolor='black')
-                    p.gridlines()
-#                         r = p.quiver(lon, lat, u, v, scale=None, units='xy', scale_units='xy', width=0.030)
-                    if isinstance(e, (GridVectorProp,)):
-                        vels = e.at(pts, t, interpolation='linear')
-                        u = vels[:, 0]
-                        v = vels[:, 1]
-                        u = np.ma.masked_equal(u, 0.0)
-                        v = np.ma.masked_equal(v, 0.0)
-                        u, v = self.convert_uv_to_delta(lat.reshape(-1), (u, v))
-                        u = u.reshape(lon.shape)
-                        v = v.reshape(lat.shape)
-                        r = p.quiver(lon, lat, u, v, transform=ccrs.PlateCarree())
-                    if isinstance(e, GriddedProp):
-                        vals = e.at(pts, t, interpolation='linear')
-                        c = p.contourf(lon, lat, vals.reshape(lon.shape), transform=plate)
-                        f.colorbar(c)
-                    self.fig_dict[e.name] = f
-            except Exception:
-                raise
-
-    def addmpl(self, fig):
-        self.canvas = FigureCanvas(fig)
+        f = Figure()
+        self.canvas = FigureCanvas(f)
+        self.cur_fig = self.fig_dict['default'] = FigManager('default', self.canvas, f)
         self.mplvl.addWidget(self.canvas)
-        self.canvas.draw()
+
         self.toolbar = NavigationToolbar(self.canvas,
                                          self.mplwindow,
                                          coordinates=True)
         self.mplvl.addWidget(self.toolbar)
-#         self.addToolBar(self.toolbar)
+        
+        self.init_sliders()
 
-    def rmmpl(self,):
-        self.mplvl.removeWidget(self.canvas)
-        self.canvas.close()
-        self.mplvl.removeWidget(self.toolbar)
-        self.toolbar.close()
+    def init_sliders(self):
+        self.slider_data = {'cur_time':self.date_time_box.dateTime(),
+                            'time_idx_max':self.time_step_slider.maximum,
+                            'depth_idx_max':self.depth_slider.maximum}
+#         self.button_open_folder.clicked.connect(self.open_netCDF)
+        self.time_step_slider._t_idx = 0
+        self.time_step_slider.valueChanged.connect(self._time_changed)
+        self.time_step_slider.sliderReleased.connect(self._time_changed)
 
-    def changefig(self, item):
-        text = item.text()
-        self.rmmpl()
-        self.addmpl(self.fig_dict[text])
+    def _time_changed(self, idx=None):
+        if not self.time_step_slider.isSliderDown():
+            if idx is None:
+                idx = self.time_step_slider._t_idx
+            self.changefig(None, idx)
+        else:
+            self.time_step_slider._t_idx = idx
 
-    def addfig(self, name, fig):
-        self.fig_dict[name] = fig
+    def setup_sliders(self, env_obj):
+        print 'slider max = {0}'.format(len(env_obj.time.time) - 1)
+        self.time_step_slider.setMaximum(len(env_obj.time.time) - 1)
+        self.time_step_slider.setValue(0)
+
+    def open_netCDF(self):
+        self.names_view.clear()
+        self.fig_dict.clear()
+        filename = QtWidgets.QFileDialog.getOpenFileName(self, "Pick a .nc")[0]
+
+        if filename is not None:
+            from gnome.environment import env_from_netCDF
+            try:
+                env = env_from_netCDF(filename)
+             
+                self.names_view_data = {}
+                for e in env:
+                    f = Figure()
+                    mpl_objs = self.plot_env_obj(e, f)
+
+                    self.addfig(e.name, f, e, mpl_objs)
+            except Exception:
+                raise
+
+    def plot_env_obj(self, e, fig=None, time=None, time_idx=None, mpl_objs={}):
+        if fig is None:
+            fig = self.cur_fig.fig
+        plate = ccrs.PlateCarree()
+        pole = projection = ccrs.NorthPolarStereo()
+        lon = e.grid.node_lon
+        lat = e.grid.node_lat
+        scl = (lon.shape[0] / 100 + 1, lon.shape[1] / 100 + 1)
+        print scl
+        lon = lon[::scl[0], ::scl[1]]
+        lat = lat[::scl[0], ::scl[1]]
+        pts = np.column_stack((lon.reshape(-1), lat.reshape(-1), np.zeros_like(lat.reshape(-1))))
+        lon = lon - 360
+        if time is None:
+            if time_idx is None:
+                t = e.time.min_time
+            else:
+                t = e.time.time[time_idx]
+        fig_children = fig.get_children()
+        if len(fig_children) > 1:
+             p = fig_children[1]
+        else:
+            p = fig.add_subplot(111, projection=pole)
+            mpl_objs = {'plot':p}
+            p.coastlines('50m')
+            p.set_extent([-180, 180, lat.min(), 90], ccrs.PlateCarree())
+            p.add_feature(cartopy.feature.OCEAN, zorder=0)
+            p.add_feature(cartopy.feature.LAND, zorder=0, edgecolor='black')
+            p.gridlines()
+#                         r = p.quiver(lon, lat, u, v, scale=None, units='xy', scale_units='xy', width=0.030)
+        if isinstance(e, (GridVectorProp,)):
+            vels = e.at(pts, time=t, interpolation='linear')
+            u = vels[:, 0]
+            v = vels[:, 1]
+            u = np.ma.masked_equal(u, 0.0)
+            v = np.ma.masked_equal(v, 0.0)
+            u, v = self.convert_uv_to_delta(lat.reshape(-1), (u, v))
+            u = u.reshape(lon.shape)
+            v = v.reshape(lat.shape)
+            if (time is not None or time_idx is not None) and 'quiver' in mpl_objs:
+                q = mpl_objs['quiver']
+                q.set_UVC(u, v)
+                p.draw_artist(q)
+            else:
+                q = p.quiver(lon, lat, u, v, transform=ccrs.PlateCarree(), picker=5)
+                mpl_objs['quiver'] = q
+        if isinstance(e, GriddedProp):
+            vals = e.at(pts, t, interpolation='linear')
+            cb = None
+            if (time is not None or time_idx is not None):
+                cb = fig.axes[1]
+                cb.clear()
+            c = p.contourf(lon, lat, vals.reshape(lon.shape), transform=plate)
+            b = fig.colorbar(c, cax=cb)
+#                 mpl_objs['contour'] = c
+#                 p._c = c
+        return mpl_objs
+
+    def changefig(self, item=None, time_idx=None):
+        fm = None
+        if item is not None:
+            # Change of item, so resize/redraw everything
+            text = item.text()
+            fm = self.fig_dict[text]
+            self.cur_fig = fm
+            env_obj = fm.env_obj
+            if env_obj is not None:
+                self.setup_sliders(env_obj)
+    
+            fm.fig.set_size_inches(fm.width / fm.fig.dpi, fm.height / fm.fig.dpi)
+        if time_idx is not None:
+            if fm is None:
+                fm = self.cur_fig
+            if fm.env_obj is not None:
+                self.plot_env_obj(fm.env_obj, fm.fig, time_idx=time_idx, mpl_objs=fm.mpl_objs)
+            print 'Time index to {0}'.format(time_idx)
+            # change displayed data on fm
+            
+            
+        self.canvas.figure = fm.fig
+        self.canvas.draw()
+            # Time change, so redraw current item with new data
+
+    def addfig(self, name, fig, env_obj=None, mpl_objs=None):
+        self.fig_dict[name] = FigManager(name, self.canvas, fig, env_obj, mpl_objs)
         self.names_view.addItem(copy.deepcopy(name))
 
     def convert_uv_to_delta(self, lat, (u, v)):
@@ -123,6 +180,50 @@ class EnvViewer(QtWidgets.QMainWindow, env_viewer.Ui_MainWindow):
         return (u, v)
 
 #     def change_bb(self, ax):
+
+class FigManager(object):
+    def __init__(self,
+                 name,
+                 canvas,
+                 fig=None,
+                 env_obj=None,
+                 mpl_objs=None,
+                 datetimeedit=None,
+                 time_step_slider=None
+                 ):
+        self.name = name
+        if fig is None:
+            fig = Figure()
+        self.fig = fig
+        self.fig.canvas = canvas
+        self.canvas = canvas
+        # below are state variables for what is being displayed
+        self.env_obj = env_obj
+        self.mpl_objs = mpl_objs
+        self.datetimeedit = datetimeedit
+        self.time_step_slider = None
+    
+    @property
+    def width(self):
+        return self.canvas.size().width()
+    
+    @property
+    def height(self):
+        return self.canvas.size().height()
+    
+    @property
+    def datetime_index(self):
+        if self.env_obj is None:
+            raise NotImplementedError("not available for non-env-objects")
+        else:
+            return e.time.index_of(self.datetimeedit.datetime().toPyDateTime())
+
+    @property
+    def time_step_index(self):
+        if self.env_obj is None:
+            raise NotImplementedError("not available for non-env-objects")
+        else:
+            return self.time_step_slider.value
 
 if __name__ == '__main__':  # if we're running file directly and not importing it
     import sys

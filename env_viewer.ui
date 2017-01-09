@@ -157,14 +157,32 @@
               <property name="title">
                <string>Time</string>
               </property>
-              <layout class="QVBoxLayout" name="verticalLayout_2">
-               <item>
-                <widget class="QDateTimeEdit" name="date_time_box"/>
+              <layout class="QGridLayout" name="gridLayout_4">
+               <item row="0" column="0" colspan="2">
+                <widget class="QDateTimeEdit" name="date_time_box">
+                 <property name="time">
+                  <time>
+                   <hour>0</hour>
+                   <minute>0</minute>
+                   <second>0</second>
+                  </time>
+                 </property>
+                </widget>
                </item>
-               <item>
+               <item row="1" column="0">
+                <widget class="QLabel" name="time_step_label">
+                 <property name="text">
+                  <string>0</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="1" column="1">
                 <widget class="QSlider" name="time_step_slider">
                  <property name="orientation">
                   <enum>Qt::Horizontal</enum>
+                 </property>
+                 <property name="tickPosition">
+                  <enum>QSlider::NoTicks</enum>
                  </property>
                 </widget>
                </item>
@@ -197,6 +215,22 @@
     <hint type="destinationlabel">
      <x>167</x>
      <y>1054</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>time_step_slider</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>time_step_label</receiver>
+   <slot>setNum(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>115</x>
+     <y>537</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>40</x>
+     <y>537</y>
     </hint>
    </hints>
   </connection>
